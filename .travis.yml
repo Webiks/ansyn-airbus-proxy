@@ -1,0 +1,33 @@
+sudo: required # is required to use docker service in travis
+
+language: node_js
+
+node_js:
+  - 'node'
+
+services:
+  - docker
+
+# Use yarn for faster installs
+install:
+  - npm install
+
+cache:
+  yarn: true
+  directories:
+    - ./node_modules
+
+before_deploy:
+  - docker --version
+  - pip install --user awscli # install aws cli w/o sudo
+  - export PATH=$PATH:$HOME/.local/bin # put aws in the path
+
+deploy:
+  - provider: script
+    script: sh -x deploy/deploy.sh $REPO $TRAVIS_COMMIT $CLUSTER $SERVICE $AWS_REGION
+    skip_cleanup: true
+    on:
+      branch: master
+
+notifications:
+  email: false
