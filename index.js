@@ -10,41 +10,44 @@ const PASSWORD = process.env.AIRBUS_PASS || '';
 app.use(cors({ origin: true, credentials: true }));
 
 app.get('/', (req, res) => {
-    console.log('req.', req.query);
-    const options = {
-        uri: `https://tiles.airbusds-geo.com/basic/metadata/${req.query.id}`,
-        json: true,
-        auth: {
-            user: USER,
-            pass: PASSWORD,
-            sendImmediately: false
-        }
-    };
-    request(options, (err, resp, body) => {
-        const keys = ['UID', 'nBits','wmtsUrl','cloudCover','orientationAngle','centerCol','radiometricAdjustment',
-            'gsUri','constellation','viewingAngle','snowCover','dataFileFormat','centerRow','nCols','viewingAlongTrack','illuminationAzimuthAngle',
-            'gsdAlongTrack','nRows','instrument','gsdAcrossTrack','passDirection','centerLatitude','satellite','illuminationElevationAngle',
-            'acquisitionDate','viewingAcrossTrack','lastModifiedDate','provider','crsCode','tileEngineUrl', 'incidenceAngle', 'sourceId',
-            'incidenceAcrossTrack', 'spectralProcessing', 'processingLevel', 'centerLongitude', 'nBands', 'incidenceAlongTrack', 'resolution','Geometry'];
-        let $ =cheerio.load(body);
-        const overlay = {};
-        //{"type":"Polygon","orientation":"clockwise","coordinates":[[[1.135122685185185,43.77625694444444],[1.398576388888888,43.77625694444444],[1.398576388888888,43.38513657407407],[1.135122685185185,43.38513657407407],[1.135122685185185,43.77625694444444]]]}
-        $('dt').each( (i, el) => {
-            const key = $(el).text().trim();
-            console.log(`searching... ${key}`);
-            if(keys.includes(key)) {
-                const value = $(el).next().text().trim();
-                console.log(`key: ${key} , value: ${value}`);
-                overlay[key] = value;
+    const {_id } = req.query;
+    if(_id) {
+        const options = {
+            uri: `https://tiles.airbusds-geo.com/basic/metadata/${req.query._id}`,
+            json: true,
+            auth: {
+                user: USER,
+                pass: PASSWORD,
+                sendImmediately: false
             }
-        });
+        };
+        request(options, (err, resp, body) => {
+            const keys = ['UID', 'nBits', 'wmtsUrl', 'cloudCover', 'orientationAngle', 'centerCol', 'radiometricAdjustment',
+                'gsUri', 'constellation', 'viewingAngle', 'snowCover', 'dataFileFormat', 'centerRow', 'nCols', 'viewingAlongTrack', 'illuminationAzimuthAngle',
+                'gsdAlongTrack', 'nRows', 'instrument', 'gsdAcrossTrack', 'passDirection', 'centerLatitude', 'satellite', 'illuminationElevationAngle',
+                'acquisitionDate', 'viewingAcrossTrack', 'lastModifiedDate', 'provider', 'crsCode', 'tileEngineUrl', 'incidenceAngle', 'sourceId',
+                'incidenceAcrossTrack', 'spectralProcessing', 'processingLevel', 'centerLongitude', 'nBands', 'incidenceAlongTrack', 'resolution', 'Geometry'];
+            let $ = cheerio.load(body);
+            const overlay = {};
+            //{"type":"Polygon","orientation":"clockwise","coordinates":[[[1.135122685185185,43.77625694444444],[1.398576388888888,43.77625694444444],[1.398576388888888,43.38513657407407],[1.135122685185185,43.38513657407407],[1.135122685185185,43.77625694444444]]]}
+            $('dt').each((i, el) => {
+                const key = $(el).text().trim();
+                if (keys.includes(key)) {
+                    const value = $(el).next().text().trim();
+                    overlay[key] = value;
+                }
+            });
 
+            res.json({
+                id: overlay.UID, properties: overlay, geometry: {
+                    type: 'Polygon', orientation: 'clockwise', coordinates: JSON.parse(overlay.Geometry)
+                }
+            });
 
-
-        res.json({id: overlay.UID, properties: overlay, geometry: {
-            type: 'Polygon', orientation: 'clockwise', coordinates: JSON.parse(overlay.Geometry)
-            }});
-    })
+        })
+    }else{
+        res.status(500).json({error: 'must pass _id parameter'})
+    }
 });
 
 app.get('/search', (req, res) => {
