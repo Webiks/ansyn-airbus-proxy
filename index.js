@@ -51,11 +51,8 @@ app.get('/', (req, res) => {
 });
 
 app.get('/search', (req, res) => {
-    let query = '?';
-    Object.entries(req.query).forEach(q => {
-        console.log(q);
-        query = query.concat(`${q[0]}=${q[1]}`)
-    });
+    const { bbox, start, end } = req.query;
+    let query = `?bbox=${bbox}`;
     const options = {
         uri: `https://tiles.airbusds-geo.com/basic/search${query}`,
         json: true,
@@ -68,7 +65,15 @@ app.get('/search', (req, res) => {
     request(options, (err, response, body) => {
         if (err) res.status(response ? response.statusCode : 500).send(err.message);
         else {
-            res.send(body);
+            const startDate = new Date(start).getTime();
+            const endDate = new Date(end).getTime();
+            const toUser = {error: body.error,
+                features: body.features.filter( (feature) => {
+                    const date = new Date(feature.properties.acquisitionDate).getTime();
+                    return date > startDate && date < endDate;
+                })
+            };
+            res.json(toUser);
         }
     });
 
