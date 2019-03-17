@@ -67,7 +67,7 @@ app.get('/search', (req, res) => {
         else {
             const startDate = new Date(start).getTime();
             const endDate = new Date(end).getTime();
-            const toUser = {error: body.error,
+            const toUser = {...body,
                 features: body.features.filter( (feature) => {
                     const date = new Date(feature.properties.acquisitionDate).getTime();
                     return date > startDate && date < endDate;
