@@ -67,12 +67,12 @@ app.get('/search', (req, res) => {
         else {
             const startDate = new Date(start).getTime();
             const endDate = new Date(end).getTime();
-            const toUser = {...body,
+            const toUser = body? {...body,
                 features: body.features.filter( (feature) => {
                     const date = new Date(feature.properties.acquisitionDate).getTime();
                     return date > startDate && date < endDate;
                 })
-            };
+            } : {error: true, features: []};
             res.json(toUser);
         }
     });
