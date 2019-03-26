@@ -69,10 +69,10 @@ app.get('/search', async (req, res) => {
     const startDate = start? new Date(start).getTime() : new Date('1900-01-01').getTime();
     const endDate = end? new Date(end).getTime() : new Date().getTime();
     let sum = 0;
+    let _continue = true;
     try {
         do {
             let partResult = await rp(options(page));
-            resp.total = partResult.totalResults;
             resp.error = partResult.error;
             resp.features = resp.features.concat(partResult.features.filter((feature) => {
                 const date = new Date(feature.properties.acquisitionDate).getTime();
@@ -80,11 +80,13 @@ app.get('/search', async (req, res) => {
             }));
             page++;
             sum += partResult.startIndex + partResult.features.length;
-        } while (!resp.error && resp.total > sum);
+            _continue = !resp.error && partResult.totalResults > sum
+        } while (_continue);
     } catch (err) {
         resp.error = true;
         resp.message = err.message;
     }
+    resp.total = resp.features.length;
     res.json(resp);
 });
 
