@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const request = require('request');
+const rp = require('request-promise');
 const cheerio = require('cheerio');
 const app = express();
 
@@ -10,8 +11,8 @@ const PASSWORD = process.env.AIRBUS_PASS || '';
 app.use(cors({ origin: true, credentials: true }));
 
 app.get('/', (req, res) => {
-    const {_id } = req.query;
-    if(_id) {
+    const { _id } = req.query;
+    if (_id) {
         const options = {
             uri: `https://tiles.airbusds-geo.com/basic/metadata/${req.query._id}`,
             json: true,
@@ -45,38 +46,46 @@ app.get('/', (req, res) => {
             });
 
         })
-    }else{
-        res.status(500).json({error: 'must pass _id parameter'})
+    } else {
+        res.status(500).json({ error: 'must pass _id parameter' })
     }
 });
 
-app.get('/search', (req, res) => {
+app.get('/search', async (req, res) => {
+    req.connection.setTimeout(10 * 60 * 1000);
     const { bbox, start, end } = req.query;
     let query = `?bbox=${bbox}`;
-    const options = {
-        uri: `https://tiles.airbusds-geo.com/basic/search${query}`,
+    const options = (page) => ({
+        uri: `https://tiles.airbusds-geo.com/basic/search${query}&page=${page}`,
         json: true,
         auth: {
             user: USER,
             pass: PASSWORD,
             sendImmediately: false
         }
-    };
-    request(options, (err, response, body) => {
-        if (err) res.status(response ? response.statusCode : 500).send(err.message);
-        else {
-            const startDate = new Date(start).getTime();
-            const endDate = new Date(end).getTime();
-            const toUser = body? {...body,
-                features: body.features.filter( (feature) => {
-                    const date = new Date(feature.properties.acquisitionDate).getTime();
-                    return date > startDate && date < endDate;
-                })
-            } : {error: true, features: []};
-            res.json(toUser);
-        }
     });
-
+    const resp = { error: false, features: [], total: 0 };
+    let page = 1;
+    const startDate = start? new Date(start).getTime() : new Date('1900-01-01').getTime();
+    const endDate = end? new Date(end).getTime() : new Date().getTime();
+    let sum = 0;
+    try {
+        do {
+            let partResult = await rp(options(page));
+            resp.total = partResult.totalResults;
+            resp.error = partResult.error;
+            resp.features = resp.features.concat(partResult.features.filter((feature) => {
+                const date = new Date(feature.properties.acquisitionDate).getTime();
+                return date > startDate && date < endDate;
+            }));
+            page++;
+            sum += partResult.startIndex + partResult.features.length;
+        } while (!resp.error && resp.total > sum);
+    } catch (err) {
+        resp.error = true;
+        resp.message = err.message;
+    }
+    res.json(resp);
 });
 
 app.get('/xyz', (req, res) => {
